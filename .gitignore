@@ -1,0 +1,5 @@
+__pycache__/
+*.bulid/
+*.dist/
+用户数据
+*.log
