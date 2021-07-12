@@ -48,7 +48,10 @@ else:
     print_green("用户账号状态正常")
 
 print("正在创建存档目录")
-os.mkdir("用户数据")
+try:
+    os.mkdir("用户数据")
+except FileExistsError:
+    pass
 os.chdir("用户数据")
 user_name = jrt.user.GetUserName(user_url)
 now_time = strftime(r"%Y%m%d-%H%M%S")
