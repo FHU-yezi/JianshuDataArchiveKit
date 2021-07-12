@@ -1,5 +1,5 @@
 __pycache__/
-*.bulid/
+*.build/
 *.dist/
 用户数据
 *.log
