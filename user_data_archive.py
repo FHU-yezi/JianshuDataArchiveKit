@@ -6,7 +6,8 @@ from tqdm import tqdm
 
 from data_getter import (GetArticleData, GetUserAllArticlesNameAndUrl,
                          GetUserData)
-from db_config import ArticlesData, UserData, articles_db, user_db
+from db_config import (ArticlesData, CommentsData, UserData, articles_db,
+                       comments_db, user_db)
 from print_with_color import *
 
 
@@ -15,7 +16,19 @@ def process_filename(filename):  # 替换操作系统禁止作为文件名的字
     for word in ban_words:
         filename = filename.replace(word, "_")
     return filename
+
+def GetArticleAllComments(article_id):
+    result = []
+    page = 1
     
+    while True:
+        page_data = jrt.article.GetArticleCommentsData(article_id, page=page)
+        if page_data != []:
+            result = result + page_data
+            page += 1
+        else:
+            break
+    return result
 
 def AddDataToDatabase(table_obj, data):
     table_obj.create(**data)
@@ -89,6 +102,15 @@ elif choice == "3":
             print_red("输入错误，请检查")
         else:
             break
+    while True:
+        comment_choice = input("是否包含评论内容？\n1. 是\n2. 否\n>>>")
+        if comment_choice not in ["1", "2"]:
+            print_red("输入错误，请检查")
+        else:
+            print("正在连接评论数据库")
+            comments_db.create_tables([CommentsData])
+            print_green("连接数据库成功")
+            break
         
     print("正在获取文章列表")
     articles_name_and_url = GetUserAllArticlesNameAndUrl(user_url)
@@ -112,4 +134,34 @@ elif choice == "3":
             article_content = jrt.article.GetArticleHtml(url)
             with open(process_filename(filename), "w", encoding="utf-8") as file:
                 file.write(article_content)
+    
+    if comment_choice == "1":
+        print("开始获取评论内容")
+        os.chdir("..")
+        for name, url in tqdm(articles_name_and_url.items(), unit="article"):
+            comments_data = GetArticleAllComments(jrt.convert.ArticleUrlToArticleId(url))
+            for comment in comments_data:
+                for sub_comment in comment["sub_comments"]:  # 处理子评论
+                    sub_comment["is_sub_comment"] = True
+                    sub_comment["article_name"] = name
+                    sub_comment["article_url"] = url
+                    sub_comment["uid"] = sub_comment["user"]["uid"]
+                    sub_comment["user_name"] = sub_comment["user"]["name"]
+                    sub_comment["uslug"] = sub_comment["user"]["uslug"]
+                    sub_comment["avatar_url"] = sub_comment["user"]["avatar_url"]
+                    del sub_comment["user"]
+                    AddDataToDatabase(CommentsData, sub_comment)
+                
+                # 处理一般评论
+                del comment["sub_comments"]
+                comment["is_sub_comment"] = False
+                comment["article_name"] = name
+                comment["article_url"] = url
+                comment["uid"] = comment["user"]["uid"]
+                comment["user_name"] = comment["user"]["name"]
+                comment["uslug"] = comment["user"]["uslug"]
+                comment["avatar_url"] = comment["user"]["avatar_url"]
+                del comment["user"]
+                AddDataToDatabase(CommentsData, comment)
+
     print_green("数据存档成功")
